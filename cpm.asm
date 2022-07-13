@@ -22,7 +22,7 @@
 ; (5) Jump into CP/M by calling BIOS cold boot.
 ; From there the BIOS loads the BDOS & CCP.
 
-    org $0000
+    ;org $0000
 
 loader_entry:
     di
@@ -30,7 +30,7 @@ loader_entry:
     jp skip_over_int_and_nmi
 
 ; INT routine. This runs when you press the /INT button. All it does is toggle the USER led.
-	org $0038
+;	org $0038
 int:
 	ex af, af'
 	exx
@@ -42,7 +42,7 @@ int:
 	reti
 
 ; NMI routine	
-	org $0066
+;	org $0066
 nmi:
 	ex af, af'
 	exx
@@ -53,10 +53,10 @@ nmi:
 	retn
 
 skip_over_int_and_nmi:
-    ld b, $01                   ; 460,800 baud
+    ld b, $20                   ; 34,800 baud
     ld c, $00                   ; No flow control
     call configure_uart         ; Put these settings into the UART
-
+start2:
     call message
    	db 27,'[2J',27,'[H'
     db 'Z80 Playground Monitor & CP/M Loader v1.03',13,10,0
@@ -72,53 +72,47 @@ skip_over_int_and_nmi:
 
     call message
     db 'Configure USB Drive...',13,10,0
-    call configure_memorystick
-    call message
-    db 'Check CH376 module exists...',13,10,0
-    call check_module_exists
-    call message
-    db 'Get CH376 module version...',13,10,0
-    call get_module_version
+s
 
     ; Now read the baud rate configuration from uart.cfg
-    ld a, $FF 
-    ld (baud_rate_divisor), a           ; Reset the two UART parameters
-    ld (flow_control_value), a
-    ld a, 0
-    ld (auto_run_char), a               ; Reset the auto-run character
-    ld hl, UART_CFG_NAME
-    call load_config_file
-    call parse_uart_config_file         ; this gets b=baud and c=flowcontrol
+ ;   ld a, $FF 
+ ;   ld (baud_rate_divisor), a           ; Reset the two UART parameters
+ ;   ld (flow_control_value), a
+ ;   ld a, 0
+ ;   ld (auto_run_char), a               ; Reset the auto-run character
+ ;   ld hl, UART_CFG_NAME
+ ;   call load_config_file
+ ;   call parse_uart_config_file         ; this gets b=baud and c=flowcontrol;
+;
+ ;   ld a, (baud_rate_divisor)           ; Check if we managed to get both baudrate and flowcontrol
+ ;   cp $FF
+ ;   jr z, failed_to_read_uart_config    ; If not, don't reconfigure uart
+ ;   ld b, a;
+;
+;    ld a, (flow_control_value)
+;    cp $FF
+;    jr z, failed_to_read_uart_config
+;    ld c, a
+;
+;    call message
+;    db 'Configuring UART to settings in UART.CFG',13,10,0
+;
+;    push bc
+;    call message 
+;    db 'BAUD ',0
+;    ld a, b
+;    call show_a_as_hex
+;    pop bc
+;
+;    push bc
+;    call message 
+;    db ', FLOW ',0
+;    ld a, c
+;    call show_a_as_hex
+;    call newline
+;    pop bc
 
-    ld a, (baud_rate_divisor)           ; Check if we managed to get both baudrate and flowcontrol
-    cp $FF
-    jr z, failed_to_read_uart_config    ; If not, don't reconfigure uart
-    ld b, a
-
-    ld a, (flow_control_value)
-    cp $FF
-    jr z, failed_to_read_uart_config
-    ld c, a
-
-    call message
-    db 'Configuring UART to settings in UART.CFG',13,10,0
-
-    push bc
-    call message 
-    db 'BAUD ',0
-    ld a, b
-    call show_a_as_hex
-    pop bc
-
-    push bc
-    call message 
-    db ', FLOW ',0
-    ld a, c
-    call show_a_as_hex
-    call newline
-    pop bc
-
-    call configure_uart                 ; Put these settings into the UART
+;    call configure_uart                 ; Put these settings into the UART
 
     ; Report on the AUTO-RUN-CHAR and start the monitor
     ld a, (auto_run_char)
@@ -141,6 +135,14 @@ start_cpm:
     call message
     db 'Checking disks...',13,10,0
     call check_cpmdisks_structure
+
+;********************************************************************************************
+;********************************************************************************************
+;      PAULO         NAO ESQUECA DE TIRAR ESSE RET
+;********************************************************************************************
+;********************************************************************************************
+
+	;JP MenuReturn
 
     ; Copy 8 byte bootstrap sequence into Low Storage at location 0
     ; but note that we patch it up in a bit with the real jump locations.
@@ -211,6 +213,7 @@ parse_cpm_config_file:
     ; If a line starts with ";" then ignore it.
     ; If a line starts with "CORE" then read in the bex value for CORE_START
     ld hl, config_file_loc
+
 parse_cpm_config_file_loop:
     call has_file_ended
     jp z, parse_config_file_end
@@ -842,9 +845,9 @@ dma_address:
     ds 2
 
 config_file_loc equ $9000
-auto_run_char equ $8FFF
+auto_run_char   equ $8FFF
 
-filename_buffer equ 65535-20
+filename_buffer equ 49152-20      ;65535-20
 DRIVE_NAME equ filename_buffer-2
 disk_buffer equ DRIVE_NAME-36
 
@@ -857,11 +860,15 @@ ccp_name equ ccp_location-13            ; stores the name of the ccp file, e.g. 
 baud_rate_divisor equ ccp_name-1
 flow_control_value equ baud_rate_divisor-1
 
-include "uart.asm"
-include "message.asm"
-include "memorystick.asm"
-include "filesize.asm"
-include "monitor.asm"
+    ;include "rom.asm"
+    ;include "start.asm"
+    ;include "ppi.asm"
+    ;include "uart.asm"
+    ;include "uart1.asm"
+    ;include "message.asm"
+    ;include "memorystick.asm"
+    ;include "filesize.asm"
+    ;include "monitor.asm"
 
-include "tiny-basic.asm"
-include "GOFL.asm"
+    ;include "tiny-basic.asm"
+    ;include "GOFL.asm"

@@ -123,10 +123,10 @@ include "message.asm"
 include "memorystick.asm"
 
 filename_buffer equ 65535-20
-DRIVE_NAME equ filename_buffer-2
-disk_buffer equ DRIVE_NAME-36
+DRIVE_NAME      equ filename_buffer-2
+disk_buffer     equ DRIVE_NAME-36
 
-CORE_END equ $
+CORE_END        equ $
 
 IF CORE_END-CORE_START>3072
     .WARNING "The CORE is too big! 3072 bytes max!"

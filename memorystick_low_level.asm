@@ -8,7 +8,7 @@ configure_memorystick:
 configure_memorystick1:
     push bc
     call connect_to_usb_drive
-    jr nz, failed_to_setup
+    jr nc, failed_to_setup
     call connect_to_disk
     call mount_disk
     pop bc
@@ -21,7 +21,8 @@ failed_to_setup:
     pop bc
     djnz configure_memorystick1
     call message
-    db 'CH376S error.',13,10,0
+    db 'Error: CH376S not connected.',13,10,0
+	jp	0
     ret
 
 ;----------------------------------------------------------------
@@ -36,19 +37,23 @@ reset_ch376_module:
 ;-----------------------------------------------------------------
 check_module_exists:
     ld a, CHECK_EXIST
-    Call send_command_byte
+    call send_command_byte
 
     ld a, 123               ; We send an arbitrary number
-    Call send_data_byte
+    call send_data_byte
 
     call read_data_byte
 
     cp 255-123      ; The result is 255 minus what we sent in
-    ret z
+	jp	z, check_module_exists_OK
+    ;ret z
     call message
     db 'ERROR: CH376S module not found.',13,10,0
     ret
-
+check_module_exists_OK:
+    call message
+    db 'CH376S module FOUND.',13,10,0
+	ret
 ;-----------------------------------------------------------------
 get_module_version:
     ld a, GET_IC_VER
@@ -58,7 +63,7 @@ get_module_version:
     and %00011111
 
     call message
-    db 'Found CH376S v',0 ; Mine is v3!!!
+    db 'Found CH376S Version ',0 ; Mine is v3!!!
     call show_a_as_hex
     call newline
     ret
@@ -69,11 +74,19 @@ set_usb_host_mode:
     call send_command_byte
     ld a, 6
     call send_data_byte
+    ld a, GET_STATUS
     call read_status_byte
+	;push	af
+	;call show_a_as_hex
+	;call newline
+	;pop		af	
     cp USB_INT_CONNECT
     ret z
     call message
-    db 'ERROR: No USB Disk?',13,10,0
+    db 'ERROR: No USB Disk: ',0
+	call show_a_as_hex
+	call newline
+
     ret
 
 ;-----------------------------------------------------------------
@@ -82,11 +95,14 @@ connect_to_disk:
     call send_command_byte
     ld a, GET_STATUS
     call read_status_byte
-    ret z
+    jp z, connect_to_disk_OK
     call message
     db 'ERROR connecting to USB Disk.',13,10,0
     ret
-
+connect_to_disk_OK:
+    call message
+    db 'CH376S connected.',13,10,0
+	ret
 ;-----------------------------------------------------------------
 mount_disk:
     ld a, DISK_MOUNT
@@ -108,7 +124,7 @@ read_disk_signature:
 
     ; Ignore the first 8 bytes
     ld b, 8
- read_disk_signature1:
+read_disk_signature1:
     push bc
     call read_data_byte_silent
     pop bc
@@ -116,7 +132,7 @@ read_disk_signature:
 
     ; Display the next 8 bytes (Manufacturer)
     ld b, 8
- read_disk_signature2:
+read_disk_signature2:
     push bc
     call read_data_byte_silent
     call print_a
@@ -126,7 +142,7 @@ read_disk_signature:
 
     ; Display the next 16 bytes (Model)
     ld b, 16
- read_disk_signature3:
+read_disk_signature3:
     push bc
     call read_data_byte_silent
     call print_a
@@ -138,7 +154,7 @@ read_disk_signature:
 
     ; Display the next 4 bytes (Version)
     ld b, 4
- read_disk_signature4:
+read_disk_signature4:
     push bc
     call read_data_byte_silent
     call print_a
@@ -155,10 +171,31 @@ could_not_read_disk_sig:
 connect_to_usb_drive:
     ; Connects us up to the USB Drive.
     ; Returns Zero flag = true if we can connect ok.
+    ;call message
+    ;db 'Calling reset',13,10,0
+	nop
+	nop
+	nop
     call reset_ch376_module 
-    call set_usb_host_mode
+    ;call message
+    ;db 'Calling set usb mode',13,10,0
+	nop
+	nop
+	nop
+	nop    
+	call set_usb_host_mode
     cp USB_INT_CONNECT
+	jp		Z, fim_ok_connect_to_usb_drive
+	;call show_a_as_hex
+	;call newline
+	cp USB_INT_DISCONNECT
+	jp		Z, fim_ok_connect_to_usb_drive
+	scf
+	ccf							
     ret
+fim_ok_connect_to_usb_drive:
+	scf 
+	ret
 
 create_file:
     ; pass in DE = pointer to filename
@@ -288,7 +325,7 @@ read_from_file_128:
     cp a                                ; set zero flag for success
     ret
 
- read_from_file_cannot:
+read_from_file_cannot:
     pop de
     or 1                                ; clear zero flag
     ret
@@ -296,15 +333,43 @@ read_from_file_128:
 copy_filename_to_buffer:
     ; Enter with hl->zero-terminated-filename-string
     ; Copies this to filename_buffer
+    call message
+    db 'conteudo HL ',0
+    push    hl
+    call    Print_String
+    call    Print_CR
+    pop     hl
     ld de, filename_buffer
+    push de
+
+    ld   a, d
+    call show_a_as_hex
+    call newline
+    ld   a, e
+    call show_a_as_hex
+    call newline
+
+    pop de
 copy_filename_to_buffer1:
     ld a, (hl)
     ld (de), a
+    call    print_a
     inc hl
     inc de
     cp 0
-    ret z
+    jp z, copy_filename_to_buffer_end
     jr copy_filename_to_buffer1
+copy_filename_to_buffer_end:
+
+    call    Print_CR
+    call message
+    db 'conteudo filename_buffer ',0
+    ld hl, filename_buffer
+    call    Print_String
+    call    Print_CR
+    ret
+
+
 
 send_data_byte:
     ; push af
@@ -386,7 +451,7 @@ read_data_bytes_into_hl:
     push af
     ld b, a
     ld c, mem_stick_data_port
- read_data_bytes_into_buffer1:
+read_data_bytes_into_buffer1:
     inir                    ; A rare use of In, Increase & Repeat!!!
     pop af
     ret
@@ -542,8 +607,8 @@ read_status_byte:
 ;     ret
 
 
-mem_stick_data_port equ 16
-mem_stick_command_port equ 17
+mem_stick_data_port 	equ 	0xA0	;16
+mem_stick_command_port 	equ 	0xA1	;17
 
 GET_IC_VER equ $01
 SET_BAUDRATE equ $02
@@ -613,4 +678,3 @@ SLASH:
 
 ;TXT_EXTENSION:
 ;    db 'TXT',0
-

@@ -47,7 +47,7 @@ LF      equ  0AH
 ; Lo-byte is stored second, with no special modification.
 DWA     MACRO     v
         DB v>>8+128
-        DB v & 0FFH
+        DB v&0FFH
         ENDM
 
 TBSTART:  
@@ -535,6 +535,16 @@ ERASE:                                   ; *** ERASE "filename" ***
         jr nz, tb_file_not_found
         call tb_erase_file
         jp RSTART
+
+EXIT:                           ; When tinybasic is launched it is called
+                                ; from the monitor.
+                                ;
+                                ; So we know the ROM is mapped.
+                                ;
+                                ; We could preserve the stack and merely RET
+                                ; but instead we'll just jump to the 0x0000
+                                ; address.
+        jp 0x0000
 
 tb_erase_file:
         ;call message
@@ -1669,8 +1679,9 @@ INIT:   LD  (OCSW),A
         db '  SAVE "filename"',CR,LF
         db '  LOAD "filename"',CR,LF
         db '  ERASE "filename"',CR,LF
+        db 'Return to the monitor with:',CR,LF
+        db '  EXIT',CR,LF
         db 'Other keywords:',CR,LF
-
         DB   '  REM, '
         DB   'NEW, '
         DB   'LIST, '
@@ -1761,6 +1772,8 @@ TAB1:                                    ; DIRECT COMMANDS
         DWA  LOAD
         DB   'ERASE'
         DWA  ERASE
+        DB   'EXIT'
+        DWA  EXIT
 
 TAB2:                                    ; DIRECT/STATEMENT
         DB   'NEXT'

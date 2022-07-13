@@ -22,8 +22,15 @@ monitor_loop2:
 	cp 0					; If it's null, ignore it
 	jr z,monitor_loop1
 	cp '0'					; '0' = go to page 0
-	jr nz,not0
+	jr nz,not00
 	call goto_page_0
+	jp monitor_loop
+not00:
+	cp 'N'					; User light toggle
+	jr nz,not0
+	call message
+	db 'Changing to a New Menu',13,10,0
+	call InputMenu
 	jp monitor_loop
 not0:
 	cp 'u'					; User light toggle
@@ -134,6 +141,11 @@ unknown_char:
 	call newline
 	jp monitor_loop
 
+MenuReturn:
+	call clear_screen
+	call show_welcome_message
+	jp monitor_loop
+
 show_welcome_message:
 	call message
 	db 13,10
@@ -143,6 +155,7 @@ show_welcome_message:
 	db 27,'[42m','|',27,'[40m','                  ',27,'[42m','|',13,10
 	db 27,'[42m','+------------------+',27,'[40m',13,10,13,10
 	db 'Monitor v1.05 February 2021',13,10,13,10
+	db 'N = New Menu', 13, 10
 	db 'c = CP/M', 13, 10
 	db 't = Tiny Basic',13,10
 	db 'g = Game-of-Life',13,10
@@ -176,7 +189,7 @@ monitor_init1:
     djnz monitor_init1
 	call user_off
 
-    call ram_fill
+    ;call ram_fill
     ret
 
 ram_fill:
@@ -260,16 +273,25 @@ ram_loop:
     db 13,10
 	db '16C550C UART Ports     CH376S Module Ports',13,10
 	db '-------------------    -------------------',13,10
-	db 'TX / RX           8    Data Port        16',13,10
-	db 'Interrupt Enable  9    Command Port     17',13,10
-	db 'Interrup Status  10',13,10
-	db 'Line Control     11',13,10
-	db 'Modem Control    12 <---- 76543210',13,10
-	db 'Line Status      13      Bit 0 = User LED',13,10
-	db 'Modem Status     14      Bit 2 = Disk LED',13,10
-	db 'Scratch          15      Bit 3 = ROM Enable',13,10
+	db 'TX / RX          B8    Data Port        A0',13,10
+	db 'Interrupt Enable B9    Command Port     A1',13,10
+	db 'Interrup Status  BA    ',13,10
+	db 'Line Control     BB    ',13,10
+	db 'Modem Control    BC <---- 76543210',13,10
+	db 'Line Status      BD      Bit 0 = User LED',13,10
+	db 'Modem Status     BE      Bit 2 = Disk LED',13,10
+	db 'Scratch          BF      Bit 3 = ROM Enable',13,10
 	db 13,10
-	db 'The EEPROM is an ATMEL AT28C256',13,10
+	db 'I2C - Z80              PPI 8255 	',13,10
+	db '-------------------    -------------------',13,10
+	db 'SCL              80    Port A           A8',13,10
+	db 'SDA_WR           88    Port B           A9',13,10
+	db 'SDA_RD           B0    Port C           AA',13,10
+	db '                       Ctrl             AB',13,10 
+	db 'PCF8574 - Z80              	',13,10
+	db '-------------------    -------------------',13,10
+    DB 'Port             27',13,10
+	db 'The EEPROM is an ATMEL AT29C512 ID 1F5D',13,10
 	db 13,10,0
 	ret
 
@@ -630,8 +652,8 @@ print_a_as_decimal_units1:
 BURN_IN_NAME:
 	db 'BURNIN.TXT',0
 
-include "printing.asm"
-include "test_uart.asm"
+	include "printing.asm"
+	include "test_uart.asm"
 
 load_jupiter_ace:
     ; Load CORE.BIN into its proper location

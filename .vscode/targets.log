@@ -1,0 +1,5 @@
+make.exe all --print-data-base --no-builtin-variables --no-builtin-rules --question
+MAKE Version 5.43  Copyright (c) 1987, 2019 Embarcadero Technologies, Inc.
+Error makefile 27: Colon expected
+*** 1 errors during make ***
+ 
